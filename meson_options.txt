@@ -151,6 +151,8 @@ option('newlib-io-long-double', type: 'boolean', value: false,
 #
 option('io-float-exact', type: 'boolean', value: true,
        description: 'use float/string code which supports round-tripping')
+option('io-stream-read-write', type: 'boolean', value: false,
+       description: 'use read/write instead of per-char put/get for stdio files')
 option('atomic-ungetc', type: 'boolean', value: true,
        description: 'use atomics in fgetc/ungetc to make them re-entrant')
 option('posix-io', type: 'boolean', value: true,

@@ -38,9 +38,27 @@ fread(void *ptr, size_t size, size_t nmemb, FILE *stream)
 	size_t i, j;
 	uint8_t *cp;
 	int c;
+#ifdef _IO_STREAM_READ_WRITE
+  __ungetc_t unget;
+#endif
 
 	if ((stream->flags & __SRD) == 0 || size == 0)
 		return 0;
+
+#ifdef _IO_STREAM_READ_WRITE
+  if ((stream->flags & __SEXT) != 0 && ((struct __file_ext *) stream)->read)
+  {
+    cp = (uint8_t *)ptr;
+    i = 0;
+    if ((unget = __atomic_exchange_ungetc(&stream->unget, 0)) != 0)
+    {
+      cp[0] = (unsigned char) (unget - 1);
+      i++;
+    }
+    c = ((struct __file_ext *) stream)->read(cp + i, (size * nmemb) - i, stream);
+  	return c < 0 ? 0 : (i + c) / size;
+  }
+#endif
 
 	for (i = 0, cp = (uint8_t *)ptr; i < nmemb; i++)
 		for (j = 0; j < size; j++) {

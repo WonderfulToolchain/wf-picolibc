@@ -37,9 +37,21 @@ fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream)
 {
 	size_t i, j;
 	const uint8_t *cp;
+#ifdef _IO_STREAM_READ_WRITE
+  int c;
+#endif
 
 	if ((stream->flags & __SWR) == 0 || size == 0)
 		return 0;
+
+#ifdef _IO_STREAM_READ_WRITE
+  if ((stream->flags & __SEXT) != 0 && ((struct __file_ext *) stream)->write)
+  {
+    cp = (const uint8_t *)ptr;
+    c = ((struct __file_ext *) stream)->write(cp, size * nmemb, stream);
+  	return c < 0 ? 0 : c / size;
+  }
+#endif
 
 	for (i = 0, cp = (const uint8_t *)ptr; i < nmemb; i++)
 		for (j = 0; j < size; j++)

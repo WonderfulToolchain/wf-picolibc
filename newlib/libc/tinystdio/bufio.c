@@ -35,6 +35,7 @@
 
 #include <stdio-bufio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <stdbool.h>
 
@@ -130,6 +131,37 @@ bail:
 }
 
 int
+__bufio_write(const void *buf, size_t len, FILE *f)
+{
+	struct __file_bufio *bf = (struct __file_bufio *) f;
+        int ret = len;
+        const uint8_t *bc = buf;
+        size_t i;
+
+	__bufio_lock(f);
+        if (__bufio_setdir_locked(f, __SWR) < 0) {
+                ret = _FDEV_ERR;
+                goto bail;
+        }
+
+        /* TODO: Use fast memcpy() if not linebuffered */
+        for (i = 0; i < len; i++) {
+                bf->buf[bf->len++] = bc[i];
+
+                /* flush if full, or if sending newline when linebuffered */
+                if (bf->len >= bf->size || (bc[i] == '\n' && (bf->bflags & __BLBF)))
+                        if (__bufio_flush_locked(f) < 0) {
+                                ret = _FDEV_ERR;
+                                break;
+                        }
+        }
+
+bail:
+	__bufio_unlock(f);
+	return ret;
+}
+
+int
 __bufio_get(FILE *f)
 {
 	struct __file_bufio *bf = (struct __file_bufio *) f;
@@ -172,6 +204,80 @@ again:
 	 * set
 	 */
 	ret = (unsigned char) bf->buf[bf->off++];
+bail:
+	__bufio_unlock(f);
+	return ret;
+}
+
+int
+__bufio_read(void *buf, size_t len, FILE *f)
+{
+	struct __file_bufio *bf = (struct __file_bufio *) f;
+        int ret = 0;
+        bool flushed = false;
+        char *bc = buf;
+        size_t len_step;
+
+again:
+	__bufio_lock(f);
+        if (__bufio_setdir_locked(f, __SRD) < 0) {
+                ret = _FDEV_ERR;
+                goto bail;
+        }
+
+        while (len > 0) {
+                /* TODO: Share this code with __bufio_get */
+                if (bf->off >= bf->len) {
+
+                        /* Flush stdout if reading from stdin */
+                        if (f == stdin && !flushed) {
+                                flushed = true;
+                                __bufio_unlock(f);
+                                fflush(stdout);
+                                goto again;
+                        }
+
+                        /* Reset read pointer */
+                        bf->off = 0;
+                        bf->len = 0;
+
+                        /* If the length > the buffer size, read directly. */
+                        if (len >= bf->size)
+                        {
+                                len_step = (bf->read)(bf->fd, bc, bf->size);
+                                if (len_step <= 0) {
+                                        ret = _FDEV_EOF;
+                                        goto bail;
+                                }
+
+                                bc += len_step;
+                                ret += len_step;
+                                len -= len_step;
+                                continue;
+                        }
+
+                        /* Read some data */
+                        bf->len = (bf->read)(bf->fd, bf->buf, bf->size);
+
+                        if (bf->len <= 0) {
+                                bf->len = 0;
+                                ret = _FDEV_EOF;
+                                goto bail;
+                        }
+
+                        /* Update FD pos */
+                        bf->pos += bf->len;
+                }
+
+                len_step = bf->len - bf->off;
+                if (len < len_step)
+                        len_step = len;
+                memcpy(bc, bf->buf + bf->off, len_step);
+                bf->off += len_step;
+                bc += len_step;
+                ret += len_step;
+                len -= len_step;
+        }
 bail:
 	__bufio_unlock(f);
 	return ret;
