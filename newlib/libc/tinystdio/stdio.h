@@ -114,6 +114,10 @@ struct __file_close {
 
 struct __file_ext {
         struct __file_close cfile;              /* close file struct */
+#ifdef _IO_STREAM_READ_WRITE
+	int	(*write)(const void *, size_t, struct __file *);	/* function to write chars to device */
+	int	(*read)(void *, size_t, struct __file *);	        /* function to read chars from device */
+#endif
         __off_t (*seek)(struct __file *, __off_t offset, int whence);
         int     (*setvbuf)(struct __file *, char *buf, int mode, size_t size);
 };
@@ -124,6 +128,17 @@ struct __file_ext {
                 .seek = (_seek),                                        \
                 .setvbuf = (_setvbuf),                                  \
         }
+
+#ifdef _IO_STREAM_READ_WRITE
+#define FDEV_SETUP_EXT_RDWR(put, get, _write, _read, flush, close, _seek, _setvbuf, rwflag) \
+        {                                                               \
+                .cfile = FDEV_SETUP_CLOSE(put, get, flush, close, (rwflag) | __SEXT), \
+                .write = (_write),                                      \
+                .read = (_read),                                        \
+                .seek = (_seek),                                        \
+                .setvbuf = (_setvbuf),                                  \
+        }
+#endif
 
 /*@{*/
 /**

@@ -62,6 +62,28 @@ struct __file_bufio {
 #endif
 };
 
+#ifdef _IO_STREAM_READ_WRITE
+#define FDEV_SETUP_BUFIO(_fd, _buf, _size, _read, _write, _lseek, _close, _rwflag, _bflags) \
+        {                                                               \
+                .xfile = FDEV_SETUP_EXT_RDWR(__bufio_put, __bufio_get,      \
+                                             __bufio_write, __bufio_read,   \
+                                             __bufio_flush, __bufio_close,  \
+                                             __bufio_seek, __bufio_setvbuf, \
+                                             (_rwflag) | __SBUF),           \
+                .fd = _fd,                                              \
+                .dir = 0,                                               \
+                .bflags = (_bflags),                                    \
+                .pos = 0,                                               \
+                .buf = _buf,                                            \
+                .size = _size,                                          \
+                .len = 0,                                               \
+                .off = 0,                                               \
+                .read = _read,                                          \
+                .write = _write,                                        \
+                .lseek = _lseek,                                        \
+                .close = _close,                                        \
+        }
+#else
 #define FDEV_SETUP_BUFIO(_fd, _buf, _size, _read, _write, _lseek, _close, _rwflag, _bflags) \
         {                                                               \
                 .xfile = FDEV_SETUP_EXT(__bufio_put, __bufio_get,       \
@@ -81,6 +103,7 @@ struct __file_bufio {
                 .lseek = _lseek,                                        \
                 .close = _close,                                        \
         }
+#endif
 
 static inline void __bufio_lock_init(FILE *f) {
 	(void) f;
@@ -111,6 +134,12 @@ __bufio_put(char c, FILE *f);
 
 int
 __bufio_get(FILE *f);
+
+int
+__bufio_write(const void *buf, size_t len, FILE *f);
+
+int
+__bufio_read(void *buf, size_t len, FILE *f);
 
 off_t
 __bufio_seek(FILE *f, off_t offset, int whence);
