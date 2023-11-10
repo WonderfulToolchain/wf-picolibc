@@ -250,6 +250,7 @@ again:
                                         goto bail;
                                 }
 
+                                bf->pos += len_step;
                                 bc += len_step;
                                 ret += len_step;
                                 len -= len_step;
