@@ -244,7 +244,8 @@ again:
                         /* If the length > the buffer size, read directly. */
                         if (len >= bf->size)
                         {
-                                len_step = (bf->read)(bf->fd, bc, bf->size);
+                                len_step = len - (len % bf->size);
+                                len_step = (bf->read)(bf->fd, bc, len_step);
                                 if (len_step <= 0) {
                                         ret = _FDEV_EOF;
                                         goto bail;
