@@ -34,6 +34,7 @@
  */
 
 #include <stdio-bufio.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -322,20 +323,40 @@ __bufio_seek(FILE *f, off_t offset, int whence)
 {
 	struct __file_bufio *bf = (struct __file_bufio *) f;
 	off_t ret;
+        off_t pos_start;
 
 	__bufio_lock(f);
-        if (__bufio_setdir_locked(f, 0) < 0)
-                return _FDEV_ERR;
-        if (bf->lseek) {
-                if (whence == SEEK_CUR) {
-                        whence = SEEK_SET;
-                        offset += bf->pos;
-                }
-                ret = (bf->lseek)(bf->fd, offset, whence);
-        } else
+        if (!bf->lseek) {
                 ret = _FDEV_ERR;
-        if (ret >= 0)
-                bf->pos = ret;
+        } else {
+                if (bf->dir == __SRD) {
+                        pos_start = bf->pos - bf->len;
+                        if (whence == SEEK_CUR) {
+                                whence = SEEK_SET;
+                                offset += pos_start + bf->off;
+                        }
+
+                        if (offset >= pos_start && (offset - pos_start) < bf->len) {
+                                // If we're reading within the scope of the buffer, we can
+                                // seek locally without invoking the underlying file.
+                                bf->off = offset - pos_start;
+                                ret = offset;
+                                goto done;
+                        }
+                }
+
+                if (__bufio_setdir_locked(f, 0) < 0)
+                        ret = _FDEV_ERR;
+                else {
+                        if (whence == SEEK_CUR) {
+                                whence = SEEK_SET;
+                                offset += bf->pos;
+                        }
+                        ret = (bf->lseek)(bf->fd, offset, whence);
+                        bf->pos = ret;
+                }
+        }
+done:
         __bufio_unlock(f);
         return ret;
 }
