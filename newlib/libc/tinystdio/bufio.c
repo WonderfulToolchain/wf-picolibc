@@ -292,6 +292,13 @@ again:
                                 continue;
                         }
 
+                        if (bf->lseek) {
+                                /* Word-align data */
+                                bf->off = bf->pos & 3;
+                                bf->pos -= bf->off;
+                                if (bf->off)
+                                        (bf->lseek)(bf->fd, bf->pos, SEEK_SET);
+                        }
                         /* Read some data */
                         bf->len = (bf->read)(bf->fd, bf->buf, bf->size);
 
