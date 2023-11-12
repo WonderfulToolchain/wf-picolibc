@@ -335,7 +335,7 @@ __bufio_seek(FILE *f, off_t offset, int whence)
 	__bufio_lock(f);
         if (!bf->lseek) {
                 ret = _FDEV_ERR;
-        } else {
+        } else {   
                 if (bf->dir == __SRD) {
                         pos_start = bf->pos - bf->len;
                         if (whence == SEEK_CUR) {
@@ -343,10 +343,22 @@ __bufio_seek(FILE *f, off_t offset, int whence)
                                 offset += pos_start + bf->off;
                         }
 
-                        if (offset >= pos_start && (offset - pos_start) < bf->len) {
+                        if (whence == SEEK_SET && offset >= pos_start && (offset - pos_start) <= bf->len) {
                                 // If we're reading within the scope of the buffer, we can
                                 // seek locally without invoking the underlying file.
                                 bf->off = offset - pos_start;
+                                ret = offset;
+                                goto done;
+                        }
+                } else if (bf->dir == __SWR) {
+                        pos_start = bf->pos;
+                        if (whence == SEEK_CUR) {
+                                whence = SEEK_SET;
+                                offset += pos_start + bf->len;
+                        }
+                        if (whence == SEEK_SET && offset == pos_start + bf->len) {
+                                // If we're writing within the scope of the buffer, we can
+                                // seek locally without invoking the underlying file.
                                 ret = offset;
                                 goto done;
                         }
