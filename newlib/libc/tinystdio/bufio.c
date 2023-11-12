@@ -137,6 +137,7 @@ __bufio_write(const void *buf, size_t len, FILE *f)
         int ret = len;
         const uint8_t *bc = buf;
         size_t i;
+        size_t len_step;
 
 	__bufio_lock(f);
         if (__bufio_setdir_locked(f, __SWR) < 0) {
@@ -144,16 +145,49 @@ __bufio_write(const void *buf, size_t len, FILE *f)
                 goto bail;
         }
 
-        /* TODO: Use fast memcpy() if not linebuffered */
-        for (i = 0; i < len; i++) {
-                bf->buf[bf->len++] = bc[i];
+        if (bf->bflags & __BLBF) {
+                /* line-buffered - use slow code path */
+                for (i = 0; i < len; i++) {
+                        bf->buf[bf->len++] = bc[i];
 
-                /* flush if full, or if sending newline when linebuffered */
-                if (bf->len >= bf->size || (bc[i] == '\n' && (bf->bflags & __BLBF)))
-                        if (__bufio_flush_locked(f) < 0) {
-                                ret = _FDEV_ERR;
-                                break;
+                        /* flush if full, or if sending newline */
+                        if (bf->len >= bf->size || bc[i] == '\n')
+                                if (__bufio_flush_locked(f) < 0) {
+                                        ret = _FDEV_ERR;
+                                        break;
+                                }
+                }
+        } else {
+                while (len > 0) {
+                        /* If the length > the buffer size, write directly. */
+                        if (len >= bf->size && bf->len == 0) {
+                                len_step = len - (len % bf->size);
+                                len_step = (bf->write)(bf->fd, bc, len_step);
+                                if (len_step <= 0) {
+                                        ret = _FDEV_EOF;
+                                        goto bail;
+                                }
+
+                                bf->pos += len_step;
+                        } else {
+                                len_step = bf->size - bf->len;
+                                if (len_step > len)
+                                        len_step = len;
+                                
+                                memcpy(bf->buf + bf->len, bc, len_step);
+
+                                bf->len += len_step;
+
+                                if (bf->len >= bf->size)
+                                        if (__bufio_flush_locked(f) < 0) {
+                                                ret = _FDEV_ERR;
+                                                goto bail;
+                                        }
                         }
+        
+                        bc += len_step;
+                        len -= len_step;
+                }
         }
 
 bail:
@@ -213,7 +247,7 @@ int
 __bufio_read(void *buf, size_t len, FILE *f)
 {
 	struct __file_bufio *bf = (struct __file_bufio *) f;
-        int ret = 0;
+        int ret = len;
         bool flushed = false;
         char *bc = buf;
         size_t len_step;
@@ -253,7 +287,6 @@ again:
 
                                 bf->pos += len_step;
                                 bc += len_step;
-                                ret += len_step;
                                 len -= len_step;
                                 continue;
                         }
@@ -277,7 +310,6 @@ again:
                 memcpy(bc, bf->buf + bf->off, len_step);
                 bf->off += len_step;
                 bc += len_step;
-                ret += len_step;
                 len -= len_step;
         }
 bail:
