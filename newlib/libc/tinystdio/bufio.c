@@ -50,6 +50,9 @@ __bufio_flush_locked(FILE *f)
         int ret = 0;
         off_t backup;
 
+        if (!bf->size)
+                return;
+
         switch (bf->dir) {
         case __SWR:
 		/* Flush everything, drop contents if that doesn't work */
@@ -119,12 +122,20 @@ __bufio_put(char c, FILE *f)
                 goto bail;
         }
 
-	bf->buf[bf->len++] = c;
-
-	/* flush if full, or if sending newline when linebuffered */
-	if (bf->len >= bf->size || (c == '\n' && (bf->bflags & __BLBF)))
-		if (__bufio_flush_locked(f) < 0)
+        if (!bf->size) {
+                // unbuffered
+                if ((bf->write) (bf->fd, &c, 1) <= 0)
                         ret = _FDEV_ERR;
+                else
+                        bf->pos++;
+        } else {
+                bf->buf[bf->len++] = c;
+
+                /* flush if full, or if sending newline when linebuffered */
+                if (bf->len >= bf->size || (c == '\n' && (bf->bflags & __BLBF)))
+                        if (__bufio_flush_locked(f) < 0)
+                                ret = _FDEV_ERR;
+        }
 
 bail:
 	__bufio_unlock(f);
@@ -146,7 +157,7 @@ __bufio_write(const void *buf, size_t len, FILE *f)
                 goto bail;
         }
 
-        if (bf->bflags & __BLBF) {
+        if (bf->size && (bf->bflags & __BLBF)) {
                 /* line-buffered - use slow code path */
                 for (i = 0; i < len; i++) {
                         bf->buf[bf->len++] = bc[i];
@@ -161,8 +172,8 @@ __bufio_write(const void *buf, size_t len, FILE *f)
         } else {
                 while (len > 0) {
                         /* If the length > the buffer size, write directly. */
-                        if (len >= bf->size && bf->len == 0) {
-                                len_step = len - (len % bf->size);
+                        if (len >= 4 && bf->len == 0) {
+                                len_step = len & (~3);
                                 len_step = (bf->write)(bf->fd, bc, len_step);
                                 if (len_step <= 0) {
                                         ret = _FDEV_EOF;
@@ -210,8 +221,18 @@ again:
                 goto bail;
         }
 
-	if (bf->off >= bf->len) {
+        if (!bf->size) {
+                // unbuffered
+                char c;
+                if ((bf->read)(bf->fd, &c, 1) <= 0)
+                        ret = _FDEV_EOF;
+                else {
+                        ret = c;
+                        bf->pos++;
+                }
 
+                goto bail;
+        } else if (bf->off >= bf->len) {
 		/* Flush stdout if reading from stdin */
 		if (f == stdin && !flushed) {
                         flushed = true;
@@ -279,8 +300,7 @@ again:
                         /* If the length > the buffer size, read directly. */
                         if (len >= bf->size)
                         {
-                                len_step = len - (len % bf->size);
-                                len_step = (bf->read)(bf->fd, bc, len_step);
+                                len_step = (bf->read)(bf->fd, bc, len);
                                 if (len_step <= 0) {
                                         ret = _FDEV_EOF;
                                         goto bail;
@@ -292,20 +312,23 @@ again:
                                 continue;
                         }
 
-                        if (bf->lseek) {
-                                /* Word-align data */
-                                bf->off = bf->pos & 3;
-                                bf->pos -= bf->off;
-                                if (bf->off)
-                                        (bf->lseek)(bf->fd, bf->pos, SEEK_SET);
-                        }
-                        /* Read some data */
-                        bf->len = (bf->read)(bf->fd, bf->buf, bf->size);
+                        if (bf->size) {
+                                if (bf->lseek) {
+                                        /* Word-align data */
+                                        bf->off = bf->pos & 3;
+                                        bf->pos -= bf->off;
+                                        if (bf->off)
+                                                (bf->lseek)(bf->fd, bf->pos, SEEK_SET);
+                                }
 
-                        if (bf->len <= 0) {
-                                bf->len = 0;
-                                ret = _FDEV_EOF;
-                                goto bail;
+                                /* Read some data */
+                                bf->len = (bf->read)(bf->fd, bf->buf, bf->size);
+
+                                if (bf->len <= 0) {
+                                        bf->len = 0;
+                                        ret = _FDEV_EOF;
+                                        goto bail;
+                                }
                         }
 
                         /* Update FD pos */
@@ -315,6 +338,8 @@ again:
                 len_step = bf->len - bf->off;
                 if (len < len_step)
                         len_step = len;
+                if (!len_step)
+                        continue;
                 memcpy(bc, bf->buf + bf->off, len_step);
                 bf->off += len_step;
                 bc += len_step;
@@ -391,7 +416,7 @@ __bufio_setvbuf(FILE *f, char *buf, int mode, size_t size)
         switch (mode) {
         case _IONBF:
                 buf = NULL;
-                size = 1;
+                size = 0;
                 break;
         case _IOLBF:
                 bf->bflags |= __BLBF;
@@ -415,7 +440,7 @@ __bufio_setvbuf(FILE *f, char *buf, int mode, size_t size)
                         if (!buf)
                                 goto bail;
                 }
-        } else if (!buf) {
+        } else if (!buf && size) {
                 buf = malloc(size);
                 if (!buf)
                         goto bail;
