@@ -44,6 +44,9 @@ __bufio_flush_locked(FILE *f)
         char *buf;
         off_t backup;
 
+        if (!bf->size)
+                return;
+
         switch (bf->dir) {
         case __SWR:
 		/* Flush everything, drop contents if that doesn't work */
@@ -137,12 +140,20 @@ __bufio_put(char c, FILE *f)
                 goto bail;
         }
 
-	bf->buf[bf->len++] = c;
-
-	/* flush if full, or if sending newline when linebuffered */
-	if (bf->len >= bf->size || (c == '\n' && (bf->bflags & __BLBF)))
-		if (__bufio_flush_locked(f) < 0)
+        if (!bf->size) {
+                // unbuffered
+                if ((bf->write) (bf->fd, &c, 1) <= 0)
                         ret = _FDEV_ERR;
+                else
+                        bf->pos++;
+        } else {
+                bf->buf[bf->len++] = c;
+
+                /* flush if full, or if sending newline when linebuffered */
+                if (bf->len >= bf->size || (c == '\n' && (bf->bflags & __BLBF)))
+                        if (__bufio_flush_locked(f) < 0)
+                                ret = _FDEV_ERR;
+        }
 
 bail:
 	__bufio_unlock(f);
@@ -166,8 +177,18 @@ again:
                 goto bail;
         }
 
-	if (bf->off >= bf->len) {
+        if (!bf->size) {
+                // unbuffered
+                char c;
+                if ((bf->read)(bf->fd, &c, 1) <= 0)
+                        ret = _FDEV_EOF;
+                else {
+                        ret = c;
+                        bf->pos++;
+                }
 
+                goto bail;
+        } else if (bf->off >= bf->len) {
 		/* Flush stdout if reading from stdin */
 		if (f == stdin && !flushed && stdout != NULL) {
                         flushed = true;
@@ -246,7 +267,7 @@ __bufio_setvbuf(FILE *f, char *buf, int mode, size_t size)
         switch (mode) {
         case _IONBF:
                 buf = NULL;
-                size = 1;
+                size = 0;
                 break;
         case _IOLBF:
                 bf->bflags |= __BLBF;
@@ -270,7 +291,7 @@ __bufio_setvbuf(FILE *f, char *buf, int mode, size_t size)
                         if (!buf)
                                 goto bail;
                 }
-        } else if (!buf) {
+        } else if (!buf && size) {
                 buf = malloc(size);
                 if (!buf)
                         goto bail;

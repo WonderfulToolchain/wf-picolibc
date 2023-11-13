@@ -88,7 +88,7 @@ fread(void *ptr, size_t size, size_t nmemb, FILE *stream)
                                                 goto again;
                                         }
                                 }
-                                if (bytes < (size_t) bf->size) {
+                                if (bf->size && bytes < (size_t) bf->size) {
                                         /* Small reads go through the buffer */
                                         int ret = __bufio_fill_locked(stream);
                                         if (ret) {
