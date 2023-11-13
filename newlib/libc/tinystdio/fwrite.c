@@ -56,7 +56,7 @@ fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream)
                 __bufio_lock(stream);
                 __bufio_setdir_locked(stream, __SWR);
 
-                if (bytes < (unsigned) bf->size) {
+                if (bf->size && bytes < (unsigned) bf->size) {
                         /* Small writes go through the buffer. */
                         while (bytes) {
                                 int this_time = bf->size - bf->len;
