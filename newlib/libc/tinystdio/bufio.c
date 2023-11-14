@@ -157,7 +157,13 @@ __bufio_write(const void *buf, size_t len, FILE *f)
                 goto bail;
         }
 
-        if (bf->size && (bf->bflags & __BLBF)) {
+        if (!bf->size) {
+                ret = (bf->write)(bf->fd, bc, len);
+                if (ret <= 0)
+                        ret = _FDEV_ERR;
+                else
+                        bf->pos += ret;
+        } else if ((bf->bflags & __BLBF)) {
                 /* line-buffered - use slow code path */
                 for (i = 0; i < len; i++) {
                         bf->buf[bf->len++] = bc[i];
