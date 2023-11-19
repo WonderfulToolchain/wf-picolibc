@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - main
+      - wonderful
   pull_request:
     branches:
       - main
+      - wonderful
   workflow_dispatch:
 
 # When a PR is updated, cancel the jobs from the previous version. Merges
