@@ -76,6 +76,8 @@ const char *mode_r[] = { "r", "rb", "r+", "rb+", "r+b", NULL };
 const char *mode_w[] = { "w", "wb", "w+", "wb+", "w+b", NULL };
 const char *mode_a[] = { "a", "ab", "a+", "ab+", "a+b", NULL };
 
+#define TEST_BUFSIZ ((BUFSIZ) ? (BUFSIZ) : 512)
+
 struct testcase {
 	const char *s;
 	off_t n;
@@ -136,7 +138,7 @@ ATF_TC_HEAD(test00, tc)
 ATF_TC_BODY(test00, tc)
 {
 	const char **p;
-	char buf[BUFSIZ];
+	char buf[TEST_BUFSIZ];
 	FILE *fp;
 
 	for (p = &mode_rwa[0]; *p != NULL; ++p) {
@@ -172,7 +174,7 @@ ATF_TC_BODY(test01, tc)
  * If a null pointer is specified as the buf argument, fmemopen() shall
  * allocate size bytes of memory as if by a call to malloc().
  */
-		fp = fmemopen(NULL, BUFSIZ, *p);
+		fp = fmemopen(NULL, TEST_BUFSIZ, *p);
 		ATF_CHECK(fp != NULL);
 
 /*
@@ -193,7 +195,7 @@ ATF_TC_HEAD(test02, tc)
 ATF_TC_BODY(test02, tc)
 {
 	const char **p;
-	char buf[BUFSIZ];
+	char buf[TEST_BUFSIZ];
 	FILE *fp;
 
 	for (p = &mode_r[0]; *p != NULL; ++p) {
@@ -246,7 +248,7 @@ ATF_TC_HEAD(test03, tc)
 ATF_TC_BODY(test03, tc)
 {
 	const char **p;
-	char buf[BUFSIZ];
+	char buf[TEST_BUFSIZ];
 	FILE *fp;
 
 	for (p = &mode_w[0]; *p != NULL; ++p) {
@@ -284,7 +286,7 @@ ATF_TC_HEAD(test04, tc)
 ATF_TC_BODY(test04, tc)
 {
 	const char **p;
-	char buf[BUFSIZ];
+	char buf[TEST_BUFSIZ];
 	FILE *fp;
 
 /*
@@ -329,7 +331,7 @@ ATF_TC_BODY(test05, tc)
 #if !defined(__GLIBC__)
 	const char **p;
 	FILE *fp;
-	char buf[BUFSIZ];
+	char buf[TEST_BUFSIZ];
 
 	for (p = &mode_rwa[0]; *p != NULL; ++p) {
 /*
@@ -445,7 +447,7 @@ ATF_TC_BODY(test09, tc)
 {
 	struct testcase *t;
 	const char **p;
-	char buf[BUFSIZ];
+	char buf[TEST_BUFSIZ];
 	FILE *fp;
 	off_t i;
 
@@ -504,7 +506,7 @@ ATF_TC_BODY(test10, tc)
 	struct testcase *t;
 	off_t i;
 	const char **p;
-	char buf[BUFSIZ];
+	char buf[TEST_BUFSIZ];
 	FILE *fp;
 
 	for (t = &testcases[0]; t->s != NULL; ++t) {
@@ -552,7 +554,7 @@ ATF_TC_BODY(test11, tc)
 	struct testcase *t;
 	off_t len, rest, i;
 	const char **p;
-	char buf[BUFSIZ];
+	char buf[TEST_BUFSIZ];
 	FILE *fp;
 
 	/* test fmemopen_seek(SEEK_CUR) */
@@ -612,7 +614,7 @@ ATF_TC_BODY(test12, tc)
 	struct testcase *t;
 	off_t len, rest, i;
 	const char **p;
-	char buf[BUFSIZ];
+	char buf[TEST_BUFSIZ];
 	FILE *fp;
 
 	/* test fmemopen_seek(SEEK_END) */
@@ -674,7 +676,7 @@ ATF_TC_BODY(test13, tc)
 	struct testcase *t;
 	off_t i;
 	const char **p;
-	char buf[BUFSIZ];
+	char buf[TEST_BUFSIZ];
 	FILE *fp;
 
 	/* test fmemopen_seek(SEEK_END) */
@@ -723,7 +725,7 @@ ATF_TC_BODY(test14, tc)
 	struct testcase *t;
 	off_t len, rest, i;
 	const char **p;
-	char buf[BUFSIZ];
+	char buf[TEST_BUFSIZ];
 	FILE *fp;
 
 	/* test fmemopen_seek(SEEK_END) */
@@ -789,7 +791,7 @@ ATF_TC_BODY(test15, tc)
 {
 	struct testcase *t;
 	const char **p;
-	char buf0[BUFSIZ];
+	char buf0[TEST_BUFSIZ];
 	FILE *fp;
 	off_t i, read_end;
 
@@ -832,7 +834,7 @@ ATF_TC_BODY(test16, tc)
 {
 	struct testcase *t;
 	const char **p;
-	char buf0[BUFSIZ], buf1[BUFSIZ];
+	char buf0[TEST_BUFSIZ], buf1[TEST_BUFSIZ];
 	FILE *fp;
 	size_t read_end;
 
@@ -877,7 +879,7 @@ ATF_TC_BODY(test17, tc)
 	size_t len;
 	size_t i;
 	const char **p;
-	char buf[BUFSIZ];
+	char buf[TEST_BUFSIZ];
 	FILE *fp;
 	size_t read_end;
 
@@ -935,7 +937,7 @@ ATF_TC_BODY(test18, tc)
 	struct testcase *t;
 	size_t len, readlen1, readlen2;
 	const char **p;
-	char buf0[BUFSIZ], buf1[BUFSIZ];
+	char buf0[TEST_BUFSIZ], buf1[TEST_BUFSIZ];
 	FILE *fp;
 
 	for (t = &testcases[0]; t->s != NULL; ++t) {
@@ -998,7 +1000,7 @@ ATF_TC_BODY(test19, tc)
 	struct testcase *t;
 	int i;
 	const char **p;
-	char buf[BUFSIZ];
+	char buf[TEST_BUFSIZ];
 	FILE *fp;
 
 	for (t = &testcases[0]; t->s != NULL; ++t) {
@@ -1061,7 +1063,7 @@ ATF_TC_BODY(test20, tc)
 {
 	struct testcase *t;
 	const char **p;
-	char buf[BUFSIZ];
+	char buf[TEST_BUFSIZ];
 	FILE *fp;
 
 	for (t = &testcases[0]; t->s != NULL; ++t) {
@@ -1114,7 +1116,7 @@ ATF_TC_BODY(test21, tc)
 	struct testcase *t;
 	int len, i;
 	const char **p;
-	char buf[BUFSIZ];
+	char buf[TEST_BUFSIZ];
 	FILE *fp;
 
 	for (t = &testcases[0]; t->s != NULL; ++t) {
@@ -1173,7 +1175,7 @@ ATF_TC_BODY(test22, tc)
 	struct testcase *t0, *t1;
 	size_t len0, len1, nleft, written, writelen;
 	const char **p;
-	char buf[BUFSIZ];
+	char buf[TEST_BUFSIZ];
 	FILE *fp;
 
 	for (t0 = &testcases[0]; t0->s != NULL; ++t0) {
