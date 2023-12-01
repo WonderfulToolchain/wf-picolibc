@@ -34,7 +34,7 @@
 #if defined (__OPTIMIZE_SIZE__) || defined (PREFER_SIZE_OVER_SPEED)
   /* Defined in memcpy-stub.c.  */
 
-#elif (__ARM_ARCH >= 7 && __ARM_ARCH_PROFILE == 'A' \
+#elif (__ARM_ARCH >= 6 && __ARM_ARCH_PROFILE == 'A' \
        && defined (__ARM_FEATURE_UNALIGNED))
 #include "memcpy-armv7a.S"
 

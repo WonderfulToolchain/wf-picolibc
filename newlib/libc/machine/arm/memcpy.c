@@ -31,7 +31,7 @@
 
 #if (defined (__OPTIMIZE_SIZE__) || defined (PREFER_SIZE_OVER_SPEED))
 #define MEMCPY_FALLBACK
-#elif (__ARM_ARCH >= 7 && __ARM_ARCH_PROFILE == 'A' \
+#elif (__ARM_ARCH >= 6 && __ARM_ARCH_PROFILE == 'A' \
        && defined (__ARM_FEATURE_UNALIGNED))
 /* Defined in memcpy.S.  */
 #elif __ARM_ARCH_ISA_THUMB == 2 && !__ARM_ARCH_ISA_ARM
