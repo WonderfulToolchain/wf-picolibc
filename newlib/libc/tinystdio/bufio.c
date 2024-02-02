@@ -45,7 +45,7 @@ __bufio_flush_locked(FILE *f)
         off_t backup;
 
         if (!bf->size)
-                return;
+                return 0;
 
         switch (bf->dir) {
         case __SWR:
